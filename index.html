@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triple Magnesium Complex — 3D hero prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&family=Playfair+Display:ital@1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#e8492b;
+    --mint:#8fc3b6;
+    --mint-deep:#2c7468;
+    --teal-text:#436c7b;
+    --accent:#7ea4b1;
+    --ink:#000;
+    --ink-2:#3a3a3a;
+    --ink-3:#767676;
+    --line:#e5e5e5;
+    --grey:#f2f2f2;
+    --cream:#f7f2eb;
+    --beige:#efe7dc;
+    --font:'Circular Std','Jost',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --serif:'Playfair Display',Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:#fff;
+    -webkit-font-smoothing:antialiased;
+  }
+  img{display:block;max-width:100%}
+  button{font-family:inherit}
+
+  /* ---------- page chrome (clone of the live first fold) ---------- */
+  .promo{
+    background:#000;color:#fff;text-align:center;
+    font-size:11px;letter-spacing:.09em;line-height:1.5;
+    padding:9px 16px;text-transform:uppercase;font-weight:500;
+  }
+  .head{
+    border-bottom:1px solid rgba(0,0,0,.09);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 22px;
+  }
+  .logo{width:58px;height:58px;flex:0 0 58px}
+  .head-icons{display:flex;gap:20px;align-items:center;color:#111}
+  .head-icons svg{width:21px;height:21px}
+  .crumb{
+    padding:20px 22px 0;font-size:14px;color:#111;
+    display:flex;gap:9px;align-items:center;flex-wrap:wrap;
+  }
+  .crumb span{color:#9b9b9b}
+  .crumb a{color:#111;text-decoration:none}
+  .crumb a:hover{text-decoration:underline}
+
+  .pdp{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:48px;
+    padding:18px 22px 60px;
+    max-width:1400px;margin:0 auto;
+    align-items:start;
+  }
+
+  /* ---------- gallery (the box the 3D lives inside) ---------- */
+  .gallery{position:sticky;top:16px;min-width:0}
+  .info{min-width:0}
+  .stage{
+    position:relative;
+    width:100%;
+    aspect-ratio:1/1;
+    background:var(--grey);
+    overflow:hidden;
+    border-radius:2px;
+    overscroll-behavior:contain;
+    -webkit-tap-highlight-color:transparent;
+  }
+  /* iOS below 15 has no aspect-ratio */
+  @supports not (aspect-ratio:1/1){
+    .stage{height:0;padding-bottom:100%}
+    .stage>*{position:absolute}
+  }
+  .layer{position:absolute;inset:0;z-index:1;transition:opacity .28s ease}
+  .layer[hidden]{display:block;opacity:0;pointer-events:none}
+
+  .shots{width:100%;height:100%}
+  .shots img{
+    width:100%;height:100%;object-fit:contain;
+    position:absolute;inset:0;opacity:0;pointer-events:none;
+    transition:opacity .2s ease;
+  }
+  .shots img.on{opacity:1}
+
+  #viewer3d{opacity:0}
+  #viewer3d.on{opacity:1}
+  #viewer3d canvas{
+    display:block;width:100%;height:100%;
+    /* the viewer owns its gestures; the page scrolls from outside the box */
+    touch-action:none;cursor:grab;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #viewer3d canvas.dragging{cursor:grabbing}
+
+  /* segmented toggle */
+  .toggle{
+    position:absolute;top:14px;right:14px;z-index:6;
+    display:flex;padding:3px;gap:2px;
+    background:rgba(255,255,255,.62);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    border:1px solid rgba(0,0,0,.09);
+    border-radius:999px;
+  }
+  .toggle button{
+    appearance:none;border:0;background:transparent;cursor:pointer;
+    font-size:12px;font-weight:600;letter-spacing:.02em;
+    color:#5c5c5c;padding:7px 15px;border-radius:999px;
+    transition:background .18s ease,color .18s ease;
+  }
+  .toggle button[aria-pressed="true"]{background:#000;color:#fff}
+  .toggle button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .hint{
+    position:absolute;top:57px;right:14px;z-index:6;
+    font-size:11px;color:#6a6a6a;background:rgba(255,255,255,.9);
+    border-radius:999px;padding:5px 11px;
+    border:1px solid rgba(0,0,0,.07);
+    animation:bob 2.4s ease-in-out 3;
+  }
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  .hint[hidden]{display:none}
+
+  /* 3D chrome: a small marker on the object, the wording clear of it */
+  .dot{
+    position:absolute;z-index:5;transform:translate(-50%,-50%);
+    width:14px;height:14px;padding:0;border-radius:50%;
+    border:1.5px solid #232323;background:rgba(255,255,255,.92);
+    cursor:pointer;opacity:0;transition:opacity .3s ease;
+  }
+  .dot[data-show="1"]{opacity:1}
+  .dot::before{
+    content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;
+    margin:-2px 0 0 -2px;border-radius:50%;background:#232323;
+  }
+  .dot::after{
+    content:'';position:absolute;inset:-1.5px;border-radius:50%;
+    border:1.5px solid #232323;animation:halo 2s ease-out infinite;
+  }
+  @keyframes halo{
+    0%{transform:scale(1);opacity:.6}
+    70%{transform:scale(2.6);opacity:0}
+    100%{transform:scale(2.6);opacity:0}
+  }
+  .dot:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+  .cue{
+    position:absolute;z-index:5;transform:translate(-50%,-50%);
+    font-size:13px;font-weight:600;color:#1b1b1b;white-space:nowrap;
+    background:rgba(255,255,255,.58);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+    border-radius:999px;padding:8px 15px;
+    box-shadow:0 2px 12px rgba(0,0,0,.07);
+    opacity:0;pointer-events:none;transition:opacity .45s ease;
+  }
+  .cue[data-show="1"]{opacity:1}
+
+  .nav{
+    position:absolute;left:16px;bottom:16px;z-index:6;
+    display:flex;gap:8px;transition:opacity .22s ease;
+  }
+  .nav[data-hide="1"]{opacity:0;pointer-events:none}
+
+  .zoomctl{
+    position:absolute;right:14px;top:50%;transform:translateY(-50%);
+    z-index:6;display:flex;flex-direction:column;gap:6px;
+  }
+  .zoomctl button{
+    width:34px;height:34px;padding:0;cursor:pointer;
+    display:grid;place-items:center;border-radius:50%;
+    background:rgba(255,255,255,.55);
+    -webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+    border:1px solid rgba(0,0,0,.09);color:#2a2a2a;
+    font-size:17px;line-height:1;font-weight:500;
+    transition:background .18s ease;
+  }
+  .zoomctl button:hover{background:rgba(255,255,255,.8)}
+  .zoomctl button svg{width:16px;height:16px}
+  .zoomctl button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .nav button{
+    width:42px;height:42px;padding:0;cursor:pointer;
+    display:grid;place-items:center;border-radius:50%;
+    background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+    border:1px solid rgba(0,0,0,.09);color:#2a2a2a;
+    transition:background .2s ease,color .2s ease;
+  }
+  .nav button svg{width:22px;height:22px}
+  .nav button[aria-current="true"]{background:rgba(20,20,20,.82);color:#fff;border-color:transparent}
+  .nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .grab{
+    position:absolute;left:16px;top:16px;z-index:5;
+    font-size:11px;color:#4d4d4d;letter-spacing:.03em;
+    transition:opacity .3s ease;
+  }
+
+  /* ingredient pins */
+  .pin{
+    position:absolute;z-index:5;transform:translate(-50%,0);
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    background:none;border:0;padding:0;cursor:pointer;
+    opacity:0;transition:opacity .3s ease;
+  }
+  .pin[data-show="1"]{opacity:1}
+  .pin .knob{
+    width:11px;height:11px;border-radius:50%;
+    background:var(--sw,#fff);border:2px solid #fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.18),0 2px 6px rgba(0,0,0,.14);
+  }
+  .pin .txt{
+    font-size:11px;font-weight:600;line-height:1.3;color:#111;
+    text-align:center;max-width:100px;
+    background:rgba(255,255,255,.58);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+    border-radius:999px;padding:4px 9px;
+    border-bottom:2px solid var(--sw,#fff);
+  }
+  .pin:focus-visible .txt{outline:2px solid var(--accent)}
+
+  .sheet{
+    position:absolute;left:50%;bottom:14px;z-index:8;
+    width:calc(100% - 28px);max-width:430px;
+    background:rgba(255,255,255,.60);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.5);
+    border-radius:12px;padding:10px 13px 12px;
+    box-shadow:0 8px 28px rgba(0,0,0,.10);
+    transform:translate(-50%,12px);opacity:0;pointer-events:none;
+    transition:transform .24s ease,opacity .24s ease;
+  }
+  .sheet[data-open="1"]{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+  .sheetTop{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .sheet h4{margin:0;font-size:13.5px;font-weight:700;line-height:1.25;flex:1}
+  .sheet p{margin:0;font-size:12px;line-height:1.45;color:var(--ink-2)}
+  .sheetNav{display:flex;align-items:center;gap:2px;flex:0 0 auto}
+  .sheetNav button{
+    width:24px;height:24px;border:0;background:transparent;cursor:pointer;
+    color:#4a4a4a;font-size:16px;line-height:1;border-radius:50%;
+    display:grid;place-items:center;
+  }
+  .sheetNav button:hover{background:rgba(0,0,0,.06)}
+  .sheetNav button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  .booting{
+    position:absolute;inset:0;z-index:4;
+    display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;
+    background:var(--grey);
+    font-size:12px;color:#8a8a8a;letter-spacing:.03em;
+  }
+  .booting[data-on="1"]{display:flex}
+  .spin{
+    width:22px;height:22px;border-radius:50%;
+    border:2px solid rgba(0,0,0,.12);border-top-color:#111;
+    animation:sp .8s linear infinite;
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* thumbnails */
+  .rail{
+    display:flex;gap:9px;margin-top:12px;overflow-x:auto;max-width:100%;
+    scrollbar-width:none;padding-bottom:2px;
+    transition:opacity .25s ease;
+  }
+  .rail::-webkit-scrollbar{display:none}
+  .rail.dim{opacity:.42}
+  .rail button{
+    flex:0 0 84px;height:84px;padding:0;background:var(--grey);
+    border:1px solid transparent;cursor:pointer;border-radius:2px;overflow:hidden;
+  }
+  .rail button[aria-current="true"]{border-color:#111}
+  .rail img{width:100%;height:100%;object-fit:contain}
+
+  /* ---------- right column ---------- */
+  .info{padding-top:4px}
+  h1{
+    font-size:40px;line-height:1.08;font-weight:700;
+    letter-spacing:-.015em;margin:0 0 8px;
+  }
+  .kicker{
+    font-family:var(--serif);font-style:italic;
+    font-size:19px;color:var(--teal-text);margin:0 0 16px;
+  }
+  .rate{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+  .stars{display:flex;gap:2px;color:var(--accent)}
+  .stars svg{width:17px;height:17px}
+  .rate .num{font-size:15px;font-weight:500}
+  .rate .num em{font-style:normal;color:var(--ink-3)}
+  .sold{
+    background:var(--beige);border-radius:999px;
+    padding:7px 15px;font-size:13px;font-weight:500;
+  }
+  .tabs{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px}
+  .tabs button{
+    border:0;background:transparent;padding:2px 0 5px;cursor:pointer;
+    font-size:15px;color:var(--ink-3);border-bottom:1.5px solid transparent;
+  }
+  .tabs button[aria-selected="true"]{color:#111;font-weight:500;border-bottom-color:#e8c98a}
+  .blurb{font-size:15px;line-height:1.6;color:var(--ink-2);margin:0 0 10px;max-width:62ch}
+  .fine{font-size:12px;line-height:1.5;color:#9b9b9b;margin:0 0 18px;max-width:62ch}
+  .claims{
+    display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;
+    margin:0 0 20px;padding:0;list-style:none;
+  }
+  .claims li{display:flex;gap:10px;align-items:center;font-size:14px;line-height:1.3}
+  .claims i{
+    flex:0 0 34px;height:34px;border-radius:50%;
+    background:#cfe4dd;display:grid;place-items:center;
+  }
+  .claims i svg{width:18px;height:18px;color:#1f4f47}
+  .chips{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:22px}
+  .chips span{background:var(--grey);border-radius:3px;padding:9px 14px;font-size:13px}
+  .price{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+  .price b{font-size:34px;font-weight:700;letter-spacing:-.01em}
+  .price s{color:#9b9b9b;font-size:17px}
+  .price em{font-style:normal;color:var(--mint-deep);font-weight:600;font-size:16px}
+  .mrp{font-size:12px;color:#9b9b9b;margin:5px 0 16px}
+  .member{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:var(--cream);border-radius:4px;padding:11px 14px;margin-bottom:16px;
+    font-size:13px;
+  }
+  .member b{font-size:15px}
+  .member a{margin-left:auto;font-size:12px;font-weight:700;color:#111;text-decoration:none;letter-spacing:.04em}
+  .stock{
+    background:#eaf1f6;border-radius:3px;padding:11px;text-align:center;
+    font-size:14px;margin-bottom:18px;
+  }
+  .packs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;max-width:420px}
+  .packs label{
+    border:1px solid var(--line);background:#fff;cursor:pointer;
+    padding:11px 8px;text-align:center;display:block;border-radius:2px;
+  }
+  .packs input{position:absolute;opacity:0;pointer-events:none}
+  .packs input:checked + label{border-color:#000}
+  .packs .t{font-size:14px;font-weight:500}
+  .packs .p{font-size:14px;font-weight:700;margin-top:4px}
+  .packs .p s{color:#6b6b6b;font-weight:400;font-size:12px;margin-left:5px}
+  .packs .s{color:var(--mint-deep);font-size:12px;margin-top:2px}
+  .qty-label{font-size:15px;margin-bottom:9px}
+  .qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;margin-bottom:20px}
+  .qty button{width:40px;height:40px;border:0;background:transparent;cursor:pointer;font-size:17px}
+  .qty span{width:34px;text-align:center;font-size:15px}
+  .buy{display:grid;gap:10px;max-width:420px}
+  .buy button{
+    height:50px;border:1px solid #111;border-radius:3px;cursor:pointer;
+    font-size:14px;font-weight:700;letter-spacing:.02em;
+  }
+  .buy .atc{background:#fff;color:#111}
+  .buy .now{background:#111;color:#fff}
+
+  .notes{
+    max-width:1400px;margin:0 auto;padding:0 22px 70px;
+    border-top:1px solid var(--line);
+  }
+  .notes h3{font-size:15px;margin:26px 0 10px;font-weight:700}
+  .notes ul{margin:0;padding-left:19px;font-size:13.5px;line-height:1.75;color:var(--ink-2);max-width:78ch}
+  .notes code{background:var(--grey);padding:1px 5px;border-radius:3px;font-size:12.5px}
+
+  @media (max-width:900px){
+    .zoomctl{right:10px;gap:5px}
+    .zoomctl button{width:29px;height:29px;font-size:15px}
+    .zoomctl button svg{width:14px;height:14px}
+    .pdp{grid-template-columns:minmax(0,1fr);gap:26px;padding:12px 16px 46px}
+    .gallery{position:static}
+    .crumb{font-size:12px;padding:14px 16px 0}
+    h1{font-size:30px}
+    .kicker{font-size:16px}
+    .claims{grid-template-columns:1fr 1fr;gap:12px}
+    .claims li{font-size:13px}
+    .rail button{flex:0 0 66px;height:66px}
+    .advance{font-size:13px;padding:12px 20px}
+    .pin .txt{font-size:10px;max-width:78px}
+    .notes{padding:0 16px 46px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms !important;transition-duration:.05s !important}
+  }
+</style>
+</head>
+<body>
+
+<div class="promo">The Nutrition Week Finale is live. Flat 10% off plus an extra 5% off on prepaid orders.</div>
+
+<header class="head">
+  <svg class="logo" viewBox="0 0 100 100" aria-label="Wellbeing Nutrition">
+    <circle cx="50" cy="50" r="47" fill="none" stroke="#111" stroke-width="2"/>
+    <text x="50" y="58" text-anchor="middle" font-family="Jost, sans-serif" font-size="34" font-weight="600" fill="#111">W</text>
+    <text x="50" y="20" text-anchor="middle" font-family="Jost, sans-serif" font-size="9" letter-spacing="1.4" fill="#111">WELLBEING</text>
+    <text x="50" y="86" text-anchor="middle" font-family="Jost, sans-serif" font-size="9" letter-spacing="1.4" fill="#111">NUTRITION</text>
+  </svg>
+  <div class="head-icons">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20.8 8.6c0 5.3-8.8 10.4-8.8 10.4S3.2 13.9 3.2 8.6a4.6 4.6 0 0 1 8.8-1.9 4.6 4.6 0 0 1 8.8 1.9z"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10.3 21a2 2 0 0 0 3.4 0"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 8h14l-1.2 12H6.2L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+  </div>
+</header>
+
+<nav class="crumb">
+  <a href="#">Home</a><span>&rsaquo;</span><a href="#">Slow</a><span>&rsaquo;</span><a href="#">Magnesium</a><span>&rsaquo;</span>Triple Magnesium Complex
+</nav>
+
+<div class="pdp">
+
+  <!-- ============ GALLERY ============ -->
+  <div class="gallery">
+    <div class="stage" id="stage">
+
+      <div class="toggle" role="group" aria-label="Gallery view">
+        <button id="tabPhotos" aria-pressed="true">Photos</button>
+        <button id="tab3d" aria-pressed="false">3D</button>
+      </div>
+      <div class="hint" id="hint">See inside the capsule</div>
+
+      <div class="layer shots" id="shots"></div>
+
+      <div class="layer" id="viewer3d" hidden>
+        <div class="grab" id="grabHint">Drag to turn</div>
+        <button class="pin" data-i="0" data-show="0"><span class="knob"></span><span class="txt">Magnesium Bisglycinate</span></button>
+        <button class="pin" data-i="1" data-show="0"><span class="knob"></span><span class="txt">Aquamin&reg; Marine Citrate</span></button>
+        <button class="pin" data-i="2" data-show="0"><span class="knob"></span><span class="txt">Magnesium Threonate</span></button>
+        <button class="dot" id="dot" data-show="0" aria-label="Next step"></button>
+        <div class="cue" id="cue" data-show="0"><span id="cueTxt">Tap to open</span></div>
+        <div class="zoomctl" id="zoomctl">
+          <button data-z="in" aria-label="Zoom in" title="Zoom in">+</button>
+          <button data-z="out" aria-label="Zoom out" title="Zoom out">&minus;</button>
+          <button data-z="reset" aria-label="Reset the view" title="Reset view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+              <path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4h-4"/>
+            </svg>
+          </button>
+        </div>
+        <div class="nav" id="nav">
+          <button data-go="0" aria-label="Show the pack" title="The pack">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <rect x="6.5" y="3" width="11" height="18" rx="2.2"/><path d="M6.5 8h11"/>
+            </svg>
+          </button>
+          <button data-go="3" aria-label="Show the capsule" title="The capsule">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <rect x="8" y="2.5" width="8" height="19" rx="4"/><path d="M8 12h8"/>
+              <circle cx="11" cy="16" r="1" fill="currentColor" stroke="none"/>
+              <circle cx="13.6" cy="18.4" r="1" fill="currentColor" stroke="none"/>
+              <circle cx="13.2" cy="14.2" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+        </div>
+        <div class="sheet" id="sheet">
+          <div class="sheetTop">
+            <h4 id="sheetTitle"></h4>
+            <div class="sheetNav">
+              <button id="sheetPrev" aria-label="Previous form">&lsaquo;</button>
+              <button id="sheetNext" aria-label="Next form">&rsaquo;</button>
+              <button id="sheetX" aria-label="Close">&times;</button>
+            </div>
+          </div>
+          <p id="sheetBody"></p>
+        </div>
+      </div>
+
+      <div class="booting" id="booting"><div class="spin"></div><span>Building the scene</span></div>
+    </div>
+    <div class="rail" id="rail"></div>
+  </div>
+
+  <!-- ============ INFO ============ -->
+  <div class="info">
+    <h1>Triple Magnesium Complex</h1>
+    <p class="kicker">The first intelligent supplement, time released over 8 hours</p>
+
+    <div class="rate">
+      <span class="stars" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.6 7 .8-5.2 4.7 1.5 7-6.3-3.6L5.7 21l1.5-7L2 9.4l7-.8z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.6 7 .8-5.2 4.7 1.5 7-6.3-3.6L5.7 21l1.5-7L2 9.4l7-.8z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.6 7 .8-5.2 4.7 1.5 7-6.3-3.6L5.7 21l1.5-7L2 9.4l7-.8z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.6 7 .8-5.2 4.7 1.5 7-6.3-3.6L5.7 21l1.5-7L2 9.4l7-.8z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.6 7 .8-5.2 4.7 1.5 7-6.3-3.6L5.7 21l1.5-7L2 9.4l7-.8z"/></svg>
+      </span>
+      <span class="num">4.9/5 <em>(782)</em></span>
+      <span class="sold">3 Lakh + units sold</span>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true">Description</button>
+      <button role="tab" aria-selected="false">Ingredients</button>
+      <button role="tab" aria-selected="false">How to take</button>
+      <button role="tab" aria-selected="false">FAQ</button>
+      <button role="tab" aria-selected="false">Lab reports</button>
+    </div>
+
+    <p class="blurb">India's first triple magnesium complex capsule, featuring the three most bioactive forms: magnesium bisglycinate, Aquamin&reg; (a natural source of magnesium citrate from Irish seawater) and magnesium threonate. A highly bioavailable formulation crafted for muscle and nerve function, deep sleep and a calm mental state.</p>
+    <p class="fine">Claims are ingredient-based and not for the product. Images are for illustration purposes only.</p>
+
+    <ul class="claims">
+      <li><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 13a8 8 0 1 1-9-8 6.2 6.2 0 0 0 9 8z"/></svg></i>Promotes deep restorative sleep</li>
+      <li><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h3l2-5 3 10 2-5h4"/></svg></i>Reduces muscle cramps</li>
+      <li><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M9 14a4 4 0 0 0 6 0"/></svg></i>Lowers stress and uplifts mood</li>
+      <li><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 4a5 5 0 0 0-5 5c0 3 2 4 2 7h6c0-3 2-4 2-7a5 5 0 0 0-5-5z"/><path d="M10 20h4"/></svg></i>Helps prevent migraines</li>
+      <li><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v18M6 7v10M18 7v10"/></svg></i>Improves mental clarity</li>
+      <li><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 4a4 4 0 0 0-4 4 3 3 0 0 0 0 6 4 4 0 0 0 4 4h6a4 4 0 0 0 4-4 3 3 0 0 0 0-6 4 4 0 0 0-4-4z"/></svg></i>Improves memory and focus</li>
+    </ul>
+
+    <div class="chips"><span>60 capsules per pack</span><span>Mint essenced</span></div>
+
+    <div class="price"><b>&#8377;1,259</b><s>&#8377;1,399</s><em>10% off</em></div>
+    <p class="mrp">MRP inclusive of all taxes</p>
+
+    <div class="member">Member price <b>&#8377;1,196</b> <span style="color:var(--mint-deep);font-weight:600">Save 15%</span> <a href="#">JOIN</a></div>
+
+    <div class="stock">Only 47 left in stock</div>
+
+    <div class="packs">
+      <div><input type="radio" name="pack" id="p1" checked><label for="p1"><span class="t">Pack of 1</span><span class="p">&#8377;1,259 <s>&#8377;1,399</s></span><span class="s">Save 10%</span></label></div>
+      <div><input type="radio" name="pack" id="p2"><label for="p2"><span class="t">Pack of 2</span><span class="p">&#8377;2,518 <s>&#8377;2,798</s></span><span class="s">Save 10%</span></label></div>
+    </div>
+
+    <p class="qty-label">Quantity</p>
+    <div class="qty"><button id="qMinus" aria-label="Decrease">&minus;</button><span id="qVal">1</span><button id="qPlus" aria-label="Increase">+</button></div>
+
+    <div class="buy">
+      <button class="atc">ADD TO CART</button>
+      <button class="now">BUY IT NOW</button>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>Prototype notes</h3>
+  <ul>
+    <li>The 3D scene mounts into the existing gallery box at the same bounding box, so nothing below the fold moves. Crossfade only.</li>
+    <li>Nothing 3D loads until the <code>3D</code> toggle is tapped. LCP stays the existing hero photo.</li>
+    <li>All geometry is procedural: the tube is a lathe and cylinder with a canvas-drawn label, the beads are one <code>InstancedMesh</code>, the three magnesium forms are a torus knot, a crystal cluster and a recursive dendrite. No purchased models, no AI renders.</li>
+    <li>Capsule is a translucent shell packed with white microbeadlets, matching the pack shots. Label colours sampled from the pack, plus real theme tokens (<code>#2c7468</code> save green, <code>#436c7b</code> teal, <code>#efe7dc</code> beige).</li>
+    <li>Ingredient copy is lifted from the live PDP, not written fresh. Swap for the legal-approved lines before it ships.</li>
+    <li>On mobile, vertical drag scrolls the page and horizontal drag turns the product (<code>touch-action: pan-y</code>), so the hero never traps the shopper.</li>
+    <li>Label artwork is redrawn from the pack shots. Replace with the print dieline for a pixel-accurate wrap.</li>
+  </ul>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ *
+   *  Photos
+   * ------------------------------------------------------------------ */
+  var CDN = 'https://wellbeingnutrition.com/cdn/shop/files/';
+  var SHOTS = [
+    'Triple_magnesium_2.jpg?v=1777527640',
+    'Slow_Magnesium_Listing-02.png?v=1766212018',
+    'Slow_Magnesium_Listing-03.png?v=1755693704',
+    'Slow_Magnesium_Listing-04.png?v=1755693704',
+    'choose-1.jpg?v=1755693704',
+    'Slow_Magnesium_Listing-05.png?v=1755693704',
+    '01_Canister_Bottle_Pill_Magnesium2.jpg?v=1755693704',
+    'SOP_427e892d-f042-4edf-a84c-f58921b90091.jpg?v=1755693704',
+    'BOP_9ed85df0-c883-4dd3-b567-d31293b3ad52.jpg?v=1755693704',
+    'TRIPLE_MAGNESIUM_6a0725b1-0e6b-4991-8f74-6c174a7387bc.jpg?v=1755693704'
+  ].map(function (f) { return CDN + f; });
+
+  var shotsEl = document.getElementById('shots');
+  var railEl = document.getElementById('rail');
+  var shotNodes = [];
+
+  SHOTS.forEach(function (src, i) {
+    var img = document.createElement('img');
+    img.src = src;
+    img.alt = 'Triple Magnesium Complex, view ' + (i + 1);
+    if (i === 0) { img.className = 'on'; img.setAttribute('fetchpriority', 'high'); }
+    else { img.loading = 'lazy'; }
+    shotsEl.appendChild(img);
+    shotNodes.push(img);
+
+    var b = document.createElement('button');
+    b.innerHTML = '<img src="' + src + '" alt="" loading="lazy">';
+    if (i === 0) b.setAttribute('aria-current', 'true');
+    b.addEventListener('click', function () { showPhoto(i); setView('photos'); });
+    railEl.appendChild(b);
+  });
+
+  function showPhoto(i) {
+    shotNodes.forEach(function (n, k) { n.classList.toggle('on', k === i); });
+    Array.prototype.forEach.call(railEl.children, function (n, k) {
+      if (k === i) n.setAttribute('aria-current', 'true');
+      else n.removeAttribute('aria-current');
+    });
+  }
+
+  /* qty stepper */
+  var q = 1, qVal = document.getElementById('qVal');
+  document.getElementById('qPlus').addEventListener('click', function () { q++; qVal.textContent = q; });
+  document.getElementById('qMinus').addEventListener('click', function () { if (q > 1) { q--; qVal.textContent = q; } });
+
+  /* ------------------------------------------------------------------ *
+   *  Toggle
+   * ------------------------------------------------------------------ */
+  var tabPhotos = document.getElementById('tabPhotos');
+  var tab3d = document.getElementById('tab3d');
+  var viewer = document.getElementById('viewer3d');
+  var booting = document.getElementById('booting');
+  var hint = document.getElementById('hint');
+  var view = 'photos';
+
+  function setView(v) {
+    if (v === view) return;
+    view = v;
+    var is3d = v === '3d';
+    tabPhotos.setAttribute('aria-pressed', String(!is3d));
+    tab3d.setAttribute('aria-pressed', String(is3d));
+    railEl.classList.toggle('dim', is3d);
+    shotsEl.hidden = is3d;
+    viewer.hidden = !is3d;
+    viewer.classList.toggle('on', is3d);
+    if (is3d) { hint.hidden = true; boot(); }
+    if (scene) scene.running = is3d;
+  }
+
+  tabPhotos.addEventListener('click', function () { setView('photos'); });
+  tab3d.addEventListener('click', function () { setView('3d'); });
+  tab3d.addEventListener('mouseenter', prefetch, { once: true });
+
+  /* ------------------------------------------------------------------ *
+   *  Lazy three.js
+   * ------------------------------------------------------------------ */
+  var THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  var loading = null, scene = null;
+
+  function prefetch() {
+    var l = document.createElement('link');
+    l.rel = 'prefetch'; l.href = THREE_URL; document.head.appendChild(l);
+  }
+
+  function loadThree() {
+    if (window.THREE) return Promise.resolve();
+    if (loading) return loading;
+    loading = new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = THREE_URL;
+      s.onload = res;
+      s.onerror = function () { rej(new Error('three.js failed to load')); };
+      document.head.appendChild(s);
+    });
+    return loading;
+  }
+
+  function fontsReady() {
+    if (!document.fonts || !document.fonts.load) return Promise.resolve();
+    return Promise.all([
+      document.fonts.load('300 150px Jost'),
+      document.fonts.load('400 34px Jost'),
+      document.fonts.load('500 20px Jost'),
+      document.fonts.load('600 40px Jost')
+    ]).then(function () { return document.fonts.ready; }).catch(function () {});
+  }
+
+  function boot() {
+    if (scene) return;
+    booting.setAttribute('data-on', '1');
+    Promise.all([loadThree(), fontsReady()]).then(function () {
+      booting.removeAttribute('data-on');
+      scene = build();
+      scene.running = true;
+    }).catch(function () {
+      booting.innerHTML = '<span>Could not load the 3D view. Check the connection and tap 3D again.</span>';
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Brand palette (sampled from the pack)
+   * ------------------------------------------------------------------ */
+  var RED = '#bd2408';
+  var MINT = '#58a191';
+  var MINT_DK = '#478d7e';
+
+  /* ------------------------------------------------------------------ *
+   *  Canvas texture helpers
+   * ------------------------------------------------------------------ */
+  function cv(w, h) {
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    return c;
+  }
+
+  function curvedText(x, str, cx, cy, r, centerAngle, size, weight, flip) {
+    x.save();
+    x.font = weight + ' ' + size + 'px Jost, sans-serif';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    var chars = str.split('');
+    var total = 0, widths = [];
+    for (var i = 0; i < chars.length; i++) {
+      var w = x.measureText(chars[i]).width + size * 0.34;
+      widths.push(w); total += w;
+    }
+    var arc = total / r;
+    var a = centerAngle - (flip ? -arc / 2 : arc / 2);
+    for (var j = 0; j < chars.length; j++) {
+      var step = widths[j] / r;
+      a += flip ? -step / 2 : step / 2;
+      x.save();
+      x.translate(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      x.rotate(a + (flip ? -Math.PI / 2 : Math.PI / 2));
+      x.fillText(chars[j], 0, 0);
+      x.restore();
+      a += flip ? -step / 2 : step / 2;
+    }
+    x.restore();
+  }
+
+  function drawRoundel(x, cx, cy, r) {
+    x.save();
+    x.strokeStyle = '#fff';
+    x.fillStyle = '#fff';
+    x.lineWidth = Math.max(1.5, r * 0.035);
+    x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.stroke();
+    x.beginPath(); x.arc(cx, cy, r * 0.80, 0, Math.PI * 2); x.stroke();
+    curvedText(x, 'WELLBEING', cx, cy, r * 0.905, -Math.PI / 2, r * 0.155, '600', true);
+    curvedText(x, 'NUTRITION', cx, cy, r * 0.905, Math.PI / 2, r * 0.155, '600', false);
+    /* side ticks */
+    x.lineWidth = Math.max(1, r * 0.028);
+    [0, Math.PI].forEach(function (a) {
+      x.beginPath();
+      x.moveTo(cx + Math.cos(a) * r * 0.83, cy + Math.sin(a) * r * 0.83);
+      x.lineTo(cx + Math.cos(a) * r * 0.99, cy + Math.sin(a) * r * 0.99);
+      x.stroke();
+    });
+    x.font = '600 ' + (r * 0.78) + 'px Jost, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('W', cx, cy + r * 0.03);
+    x.font = '500 ' + (r * 0.14) + 'px Jost, sans-serif';
+    x.fillText('\u00AE', cx + r * 0.42, cy - r * 0.22);
+    x.restore();
+  }
+
+  function drawVegMark(x, cx, cy, s) {
+    x.save();
+    x.strokeStyle = '#1f7a3d'; x.lineWidth = Math.max(1.4, s * 0.09);
+    x.strokeRect(cx - s / 2, cy - s / 2, s, s);
+    x.fillStyle = '#1f7a3d';
+    x.beginPath(); x.arc(cx, cy, s * 0.26, 0, Math.PI * 2); x.fill();
+    x.restore();
+  }
+
+  /* the little capsule illustration printed on the pack */
+  function drawPackCapsule(x, cx, cy, len, rad, tilt) {
+    x.save();
+    x.translate(cx, cy);
+    x.rotate(tilt);
+    var r = rad, half = len / 2 - r;
+    x.beginPath();
+    x.moveTo(-r, -half);
+    x.arc(0, -half, r, Math.PI, 0);
+    x.lineTo(r, half);
+    x.arc(0, half, r, 0, Math.PI);
+    x.closePath();
+    x.fillStyle = 'rgba(255,255,255,0.30)';
+    x.fill();
+    x.save();
+    x.clip();
+    /* microbeadlets */
+    for (var i = 0; i < 620; i++) {
+      var bx = (Math.random() * 2 - 1) * r;
+      var by = (Math.random() * 2 - 1) * (len / 2);
+      var br = r * 0.085 + Math.random() * r * 0.045;
+      var g = x.createRadialGradient(bx - br * .3, by - br * .3, br * .1, bx, by, br);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(1, 'rgba(226,232,229,0.95)');
+      x.fillStyle = g;
+      x.beginPath(); x.arc(bx, by, br, 0, Math.PI * 2); x.fill();
+    }
+    /* clear top third of the shell */
+    x.fillStyle = 'rgba(255,255,255,0.12)';
+    x.fillRect(-r, -len / 2, r * 2, len * 0.24);
+    x.restore();
+    x.strokeStyle = 'rgba(255,255,255,0.5)';
+    x.lineWidth = Math.max(1, r * 0.05);
+    x.stroke();
+    x.restore();
+  }
+
+  function iconTimeRelease(x, cx, cy, s) {
+    x.save();
+    x.strokeStyle = '#fff'; x.fillStyle = '#fff';
+    x.lineWidth = Math.max(1.2, s * 0.045);
+    x.beginPath(); x.arc(cx, cy, s * 0.46, 0.35, Math.PI * 2 - 0.35); x.stroke();
+    x.font = '600 ' + (s * 0.44) + 'px Jost, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('8h', cx, cy + s * 0.02);
+    for (var i = 0; i < 5; i++) {
+      var a = -0.9 + i * 0.36;
+      x.beginPath();
+      x.arc(cx + Math.cos(a) * s * 0.6, cy + Math.sin(a) * s * 0.6, s * 0.045, 0, Math.PI * 2);
+      x.fill();
+    }
+    x.restore();
+  }
+
+  function iconTwoInOne(x, cx, cy, s) {
+    x.save();
+    x.strokeStyle = '#fff'; x.fillStyle = '#fff';
+    x.lineWidth = Math.max(1.2, s * 0.045);
+    x.beginPath(); x.arc(cx, cy, s * 0.46, 0.4, Math.PI * 2 - 0.4); x.stroke();
+    x.font = '600 ' + (s * 0.4) + 'px Jost, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('2in1', cx, cy + s * 0.02);
+    x.restore();
+  }
+
+  /* ---- lid label (red, carries the roundel) ---- */
+  function lidTexture() {
+    var W = 1536, H = 288;
+    var c = cv(W, H), x = c.getContext('2d');
+    x.fillStyle = RED; x.fillRect(0, 0, W, H);
+    /* soft vertical shading so the print doesn't look flat */
+    var g = x.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, 'rgba(255,255,255,0.05)');
+    g.addColorStop(0.5, 'rgba(255,255,255,0)');
+    g.addColorStop(1, 'rgba(0,0,0,0.09)');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    drawRoundel(x, W / 2, H * 0.50, H * 0.30);
+    drawVegMark(x, W / 2 + 210, H * 0.26, H * 0.11);
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.RepeatWrapping;
+    t.offset.x = 0.5;
+    t.anisotropy = 4;
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  /* ---- body label (mint, carries all the type) ---- */
+  function bodyTexture() {
+    var W = 1800, H = 1000;
+    var c = cv(W, H), x = c.getContext('2d');
+    x.fillStyle = MINT; x.fillRect(0, 0, W, H);
+    /* red overlap band under the lid */
+    x.fillStyle = RED; x.fillRect(0, 0, W, 64);
+
+    /* cylindrical shading: bright at the front (canvas centre), dark at the edges */
+    var g = x.createLinearGradient(0, 0, W, 0);
+    g.addColorStop(0.00, 'rgba(0,0,0,0.30)');
+    g.addColorStop(0.18, 'rgba(0,0,0,0.12)');
+    g.addColorStop(0.42, 'rgba(255,255,255,0.025)');
+    g.addColorStop(0.50, 'rgba(255,255,255,0.055)');
+    g.addColorStop(0.58, 'rgba(255,255,255,0.025)');
+    g.addColorStop(0.82, 'rgba(0,0,0,0.12)');
+    g.addColorStop(1.00, 'rgba(0,0,0,0.30)');
+
+    var cx = W / 2;
+    var MAXW = 560;            /* the readable front face, roughly 112 degrees */
+    x.save();
+    x.fillStyle = '#fff';
+    x.textAlign = 'center';
+    x.textBaseline = 'alphabetic';
+
+    /* slow */
+    x.font = '300 152px Jost, sans-serif';
+    x.fillText('slow', cx, 216, MAXW);
+
+    /* product name */
+    x.font = '400 34px Jost, sans-serif';
+    x.letterSpacing = '3px';
+    x.fillText('TRIPLE MAGNESIUM', cx, 286, MAXW);
+    x.fillText('COMPLEX', cx, 328, MAXW);
+    x.letterSpacing = '0px';
+
+    /* capsule art */
+    drawPackCapsule(x, cx + 4, 468, 158, 40, 0.42);
+
+    /* ingredient line */
+    x.font = '500 17px Jost, sans-serif';
+    x.fillText('MAGNESIUM BISGLYCINATE, AQUAMIN\u00AE CITRATE &', cx, 610, MAXW);
+    x.fillText('THREONATE FOR HEALTHY MUSCLE & NERVE FUNCTION', cx, 636, MAXW);
+
+    /* seam hairline */
+    x.strokeStyle = 'rgba(255,255,255,0.30)';
+    x.lineWidth = 2;
+    x.beginPath(); x.moveTo(0, 684); x.lineTo(W, 684); x.stroke();
+
+    /* icon row */
+    iconTimeRelease(x, cx - 92, 748, 42);
+    iconTwoInOne(x, cx + 74, 748, 42);
+    x.font = '500 14px Jost, sans-serif';
+    x.fillText('TIME RELEASE', cx - 92, 790);
+    x.fillText('NUTRITION', cx - 92, 808);
+    x.fillText('NUTRI -', cx + 74, 790);
+    x.fillText('SCIENCE', cx + 74, 808);
+    x.strokeStyle = 'rgba(255,255,255,0.38)';
+    x.beginPath(); x.moveTo(cx - 8, 722); x.lineTo(cx - 8, 786); x.stroke();
+
+    /* count pill */
+    x.strokeStyle = '#fff'; x.lineWidth = 1.6;
+    roundRect(x, cx - 72, 842, 144, 28, 14); x.stroke();
+    x.font = '500 15px Jost, sans-serif';
+    x.fillText('60N CAPSULES', cx, 861);
+    x.font = '500 13px Jost, sans-serif';
+    x.fillStyle = 'rgba(255,255,255,0.9)';
+    x.fillText('NUTRACEUTICAL', cx, 898);
+    x.restore();
+
+    /* back of the pack, centred on the texture seam */
+    [0, W].forEach(function (bx) { drawPackBack(x, bx, W, H); });
+
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.RepeatWrapping;
+    t.offset.x = 0.5;
+    t.anisotropy = 4;
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  function roundRect(x, px, py, w, h, r) {
+    x.beginPath();
+    x.moveTo(px + r, py);
+    x.lineTo(px + w - r, py); x.quadraticCurveTo(px + w, py, px + w, py + r);
+    x.lineTo(px + w, py + h - r); x.quadraticCurveTo(px + w, py + h, px + w - r, py + h);
+    x.lineTo(px + r, py + h); x.quadraticCurveTo(px, py + h, px, py + h - r);
+    x.lineTo(px, py + r); x.quadraticCurveTo(px, py, px + r, py);
+    x.closePath();
+  }
+
+  function drawPackBack(x, cx, W, H) {
+    x.save();
+    x.translate(cx, 0);
+    x.textAlign = 'left';
+    x.fillStyle = 'rgba(255,255,255,0.92)';
+    x.font = '500 17px Jost, sans-serif';
+    x.fillText('Use the power of nature', -128, 196);
+    x.fillText('delivered by science, with SLOW.', -128, 220);
+    x.font = '400 13px Jost, sans-serif';
+    x.fillStyle = 'rgba(255,255,255,0.8)';
+    var lines = [
+      'Net Wt.: 49 g',
+      'Recommended usage: take 2 capsules daily post meal,',
+      'with a glass of water. For best results, after dinner.',
+      'Storage: store in a cool, dry and dark place.',
+      'Keep out of reach of children.',
+      'For adult use only. Not for medicinal use.',
+      'wellbeingnutrition.com'
+    ];
+    lines.forEach(function (l, i) { x.fillText(l, -128, 262 + i * 22); });
+    x.textAlign = 'center';
+    x.font = '400 14px Jost, sans-serif';
+    x.fillStyle = 'rgba(255,255,255,0.85)';
+    x.fillText('A TIME-CONSCIOUS SUPPLEMENT', 0, 846);
+    x.fillText('enhanced with mint', 0, 870);
+    x.restore();
+  }
+
+  /* a single seamless gradient behind everything: the film has no horizon line,
+     and a floor plane was drawing a hard seam straight through the product */
+  function backdropTexture() {
+    var S = 1024;
+    var c = cv(S, S), x = c.getContext('2d');
+    var g = x.createLinearGradient(0, 0, 0, S);
+    g.addColorStop(0.00, '#a7a49c');
+    g.addColorStop(0.34, '#bab7af');
+    g.addColorStop(0.58, '#c9c6be');
+    g.addColorStop(0.82, '#bdbab2');
+    g.addColorStop(1.00, '#a3a099');
+    x.fillStyle = g; x.fillRect(0, 0, S, S);
+    /* radial gradients are soft natively and need no filter support */
+    x.save();
+    x.translate(S * 0.5, S * 0.54);
+    x.scale(1, 0.66);
+    var pool = x.createRadialGradient(0, 0, 0, 0, 0, S * 0.52);
+    pool.addColorStop(0.00, 'rgba(255,255,255,0.34)');
+    pool.addColorStop(0.45, 'rgba(255,255,255,0.15)');
+    pool.addColorStop(1.00, 'rgba(255,255,255,0)');
+    x.fillStyle = pool;
+    x.fillRect(-S, -S, S * 2, S * 2);
+    x.restore();
+    /* corner falloff keeps the eye on the product */
+    var v = x.createRadialGradient(S * 0.5, S * 0.5, S * 0.24, S * 0.5, S * 0.5, S * 0.78);
+    v.addColorStop(0, 'rgba(0,0,0,0)');
+    v.addColorStop(1, 'rgba(0,0,0,0.16)');
+    x.fillStyle = v; x.fillRect(0, 0, S, S);
+    var t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  /* Real shadow maps render inconsistently on iOS Safari and cost a whole extra
+     pass over every caster. The grounding is painted instead: a soft gradient
+     plane under each object, which looks the same on every device and is free. */
+  function shadowTexture() {
+    var S = 256;
+    var c = cv(S, S), x = c.getContext('2d');
+    var g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    g.addColorStop(0.00, 'rgba(48,44,38,0.90)');
+    g.addColorStop(0.32, 'rgba(48,44,38,0.56)');
+    g.addColorStop(0.66, 'rgba(48,44,38,0.18)');
+    g.addColorStop(1.00, 'rgba(52,48,42,0)');
+    x.fillStyle = g; x.fillRect(0, 0, S, S);
+    var t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  function envTexture(renderer) {
+    var c = cv(1024, 512), x = c.getContext('2d');
+    var g = x.createLinearGradient(0, 0, 0, 512);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.42, '#f2efe9');
+    g.addColorStop(0.68, '#cfcbc2');
+    g.addColorStop(1, '#9d9a93');
+    x.fillStyle = g; x.fillRect(0, 0, 1024, 512);
+    function softBlob(px, py, rx, ry, col, a) {
+      x.save();
+      x.translate(px, py);
+      x.scale(1, ry / rx);
+      var rg = x.createRadialGradient(0, 0, 0, 0, 0, rx);
+      rg.addColorStop(0, col.replace('A', a));
+      rg.addColorStop(0.5, col.replace('A', (a * 0.42).toFixed(3)));
+      rg.addColorStop(1, col.replace('A', '0'));
+      x.fillStyle = rg;
+      x.fillRect(-rx, -rx, rx * 2, rx * 2);
+      x.restore();
+    }
+    softBlob(300, 140, 260, 130, 'rgba(255,255,255,A)', 0.95);
+    softBlob(770, 180, 210, 105, 'rgba(255,255,255,A)', 0.6);
+    softBlob(520, 430, 380, 120, 'rgba(200,204,200,A)', 0.5);
+    var tex = new THREE.CanvasTexture(c);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    var pm = new THREE.PMREMGenerator(renderer);
+    var env = pm.fromEquirectangular(tex).texture;
+    pm.dispose(); tex.dispose();
+    return env;
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Geometry helpers
+   * ------------------------------------------------------------------ */
+  /* half a capsule: open at y=0, domed closed at y=len */
+  function capsuleHalf(radius, len, segs) {
+    var pts = [];
+    var straight = Math.max(0.001, len - radius);
+    pts.push(new THREE.Vector2(radius, 0));
+    pts.push(new THREE.Vector2(radius, straight));
+    var n = 10;
+    for (var i = 1; i <= n; i++) {
+      var a = (i / n) * Math.PI / 2;
+      pts.push(new THREE.Vector2(radius * Math.cos(a), straight + radius * Math.sin(a)));
+    }
+    return new THREE.LatheGeometry(pts, segs || 32);
+  }
+
+  function randomAxis() {
+    return new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize();
+  }
+
+  /* collects branch transforms so the whole dendrite ships as two instanced
+     draws instead of ~120 separate meshes */
+  function dendrite(out, depth, len, rad, dir, origin) {
+    var end = origin.clone().add(dir.clone().multiplyScalar(len));
+    out.branch.push({
+      p: origin.clone().add(dir.clone().multiplyScalar(len / 2)),
+      q: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize()),
+      s: new THREE.Vector3(rad, len, rad)
+    });
+    out.knob.push({ p: end.clone(), r: rad * 0.86 });
+    if (depth <= 1) return;
+    var branches = depth > 2 ? 3 : 2;
+    for (var i = 0; i < branches; i++) {
+      var nd = dir.clone().applyAxisAngle(randomAxis(), 0.55 + Math.random() * 0.55).normalize();
+      dendrite(out, depth - 1, len * 0.70, rad * 0.76, nd, end);
+    }
+  }
+
+  /* concatenates baked geometries into one buffer, so a cluster is one draw */
+  function mergeBaked(list, withNormals) {
+    var pos = [], nrm = [];
+    for (var i = 0; i < list.length; i++) {
+      var g = list[i].index ? list[i].toNonIndexed() : list[i];
+      var pa = g.attributes.position.array;
+      for (var j = 0; j < pa.length; j++) pos.push(pa[j]);
+      if (withNormals && g.attributes.normal) {
+        var na = g.attributes.normal.array;
+        for (var k = 0; k < na.length; k++) nrm.push(na[k]);
+      }
+    }
+    var out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    if (withNormals && nrm.length === pos.length) {
+      out.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+    }
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Beats
+   * ------------------------------------------------------------------ */
+  var BEATS = [
+    { label: 'Tap to open' },
+    { label: '' },
+    { label: 'Tap a capsule' },
+    { label: 'Crack it open' },
+    { label: '' },
+    { label: '' }
+  ];
+
+  /* beats that carry themselves: hold, then move on without a tap */
+  var AUTO_HOLD = { 1: 600, 4: 800 };
+
+  /* where the wording sits, as a fraction of the canvas, kept clear of the
+     product at every beat */
+  var CUE_POS = [[0.21, 0.42], [0.21, 0.42], [0.20, 0.72], [0.21, 0.42], [0.21, 0.42], [0.21, 0.42]];
+
+  /* one colour per form: ocean for the marine source, violet for the brain-
+     available form, and the pack's own vermillion for the muscle form */
+  var FORM_HEX = [0x8e2409, 0x0a4a60, 0x2f2472];
+  var FORM_CSS = ['#b5340f', '#0e6480', '#443597'];
+
+  var FORMS = [
+    {
+      title: 'Magnesium Bisglycinate',
+      body: 'Chelated with glycine for high absorption. Non-buffered, so it stays easy on the stomach.'
+    },
+    {
+      title: 'Aquamin\u00AE Marine Magnesium',
+      body: 'Marine magnesium citrate from Irish seawater. Highly bioavailable, with 72 trace minerals.'
+    },
+    {
+      title: 'Magnesium Threonate',
+      body: 'Chelated with L-threonate. Retains better than citrate and crosses into the brain.'
+    }
+  ];
+
+  /* pose parameters interpolated between beats */
+  function pose(i) {
+    switch (i) {
+      /* closed pack */
+      case 0: return { camY: -0.16, camZ: 7.05, tgtY: -0.16, lid: 0, ring: 0, tube: 1, tubeY: 0.0, hero: 0, split: 0, burst: 0, form: 0 };
+      /* cap tips off, capsules pour out */
+      case 1: return { camY: 0.54, camZ: 8.30, tgtY: 0.56, lid: 1, ring: 1, tube: 1, tubeY: 0.0, hero: 0, split: 0, burst: 0, form: 0 };
+      /* pack and cap drop out of frame, capsules stay */
+      case 2: return { camY: 1.15, camZ: 3.90, tgtY: 1.18, lid: 1, ring: 1, tube: 0, tubeY: -3.6, hero: 0, split: 0, burst: 0, form: 0 };
+      /* one capsule, close */
+      case 3: return { camY: 0.04, camZ: 8.50, tgtY: 0.04, lid: 1, ring: 0, tube: 0, tubeY: -3.6, hero: 1, split: 0, burst: 0, form: 0 };
+      /* cracked, microbeadlets out */
+      case 4: return { camY: 0.04, camZ: 8.25, tgtY: 0.04, lid: 1, ring: 0, tube: 0, tubeY: -3.6, hero: 1, split: 1, burst: 1, form: 0 };
+      /* the three forms */
+      default: return { camY: 0.00, camZ: 8.30, tgtY: 0.00, lid: 1, ring: 0, tube: 0, tubeY: -3.6, hero: 0, split: 1, burst: 1, form: 1 };
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Build the scene
+   * ------------------------------------------------------------------ */
+  function build() {
+    var host = viewer;
+    var W = host.clientWidth || 600, H = host.clientHeight || 600;
+
+    var isPhone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+                  Math.min(window.innerWidth, window.innerHeight) < 820;
+    var maxDpr = isPhone ? 2 : 2.25;
+    var renderer = new THREE.WebGLRenderer({
+      antialias: true, alpha: true, powerPreference: 'default'
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxDpr));
+    renderer.setSize(W, H);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.88;
+    renderer.shadowMap.enabled = false;
+    host.appendChild(renderer.domElement);
+
+    var sc = new THREE.Scene();
+    sc.environment = envTexture(renderer);
+
+    var cam = new THREE.PerspectiveCamera(32, W / H, 0.1, 100);
+    cam.position.set(0, -0.16, 7.05);
+    var camTarget = new THREE.Vector3(0, 0, 0);
+
+    /* --- lights --- */
+    sc.add(new THREE.HemisphereLight(0xffffff, 0xa9a6a0, 0.20));
+    var key = new THREE.DirectionalLight(0xfffaf4, 1.35);
+    key.position.set(2.6, 5.2, 3.4);
+    sc.add(key);
+    var fill = new THREE.DirectionalLight(0xffffff, 0.20);
+    fill.position.set(-3.4, 1.8, -2.2);
+    sc.add(fill);
+    var rim = new THREE.DirectionalLight(0xffffff, 0.42);
+    rim.position.set(0, 1.2, -5);
+    sc.add(rim);
+    var front = new THREE.DirectionalLight(0xffffff, 0.26);
+    front.position.set(0.5, 0.7, 5);
+    sc.add(front);
+
+    /* --- seamless backdrop --- */
+    sc.background = backdropTexture();
+
+    /* --- the world spins with the drag --- */
+    var world = new THREE.Group();
+    sc.add(world);
+
+    var GROUND = -1.34;
+    var shTex = shadowTexture();
+    function contactShadow(w, d) {
+      var m = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({
+          map: shTex, transparent: true, opacity: 0, depthWrite: false
+        })
+      );
+      m.rotation.x = -Math.PI / 2;
+      m.scale.set(w, d, 1);
+      m.renderOrder = -1;
+      m.visible = false;
+      world.add(m);
+      return m;
+    }
+    var shTube = contactShadow(2.15, 1.34);
+    var shHero = contactShadow(2.30, 1.45);
+    var shForms = [contactShadow(1.40, 0.92), contactShadow(1.40, 0.92), contactShadow(1.40, 0.92)];
+
+    /* ================= tube ================= */
+    var TUBE_R = 0.55, BODY_H = 2.02, LID_H = 0.50;
+    var tube = new THREE.Group();
+    world.add(tube);
+
+    var bodyMat = new THREE.MeshPhysicalMaterial({
+      map: bodyTexture(), roughness: 0.52, metalness: 0,
+      clearcoat: 0.16, clearcoatRoughness: 0.6, envMapIntensity: 0.28, transparent: true, opacity: 1
+    });
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(TUBE_R, TUBE_R, BODY_H, 44, 1, true), bodyMat);
+    body.position.y = -0.26;
+    tube.add(body);
+
+    var baseMat = new THREE.MeshPhysicalMaterial({ color: MINT_DK, roughness: 0.6, metalness: 0, transparent: true });
+    var base = new THREE.Mesh(new THREE.CircleGeometry(TUBE_R, 64), baseMat);
+    base.rotation.x = Math.PI / 2;
+    base.position.y = -0.26 - BODY_H / 2 + 0.001;
+    tube.add(base);
+
+    /* mouth: inner wall, floor, rim */
+    var mouth = new THREE.Group();
+    tube.add(mouth);
+    var innerMat = new THREE.MeshStandardMaterial({ color: 0xcdd4d0, roughness: 0.85, side: THREE.BackSide, transparent: true });
+    var inner = new THREE.Mesh(new THREE.CylinderGeometry(TUBE_R - 0.03, TUBE_R - 0.03, 0.62, 36, 1, true), innerMat);
+    inner.position.y = -0.26 + BODY_H / 2 - 0.31;
+    mouth.add(inner);
+    var mFloorMat = new THREE.MeshStandardMaterial({ color: 0xc0c8c3, roughness: 0.9, transparent: true });
+    var mFloor = new THREE.Mesh(new THREE.CircleGeometry(TUBE_R - 0.03, 48), mFloorMat);
+    mFloor.rotation.x = -Math.PI / 2;
+    mFloor.position.y = -0.26 + BODY_H / 2 - 0.62;
+    mouth.add(mFloor);
+    var rimMat = new THREE.MeshPhysicalMaterial({ color: RED, roughness: 0.45, metalness: 0, clearcoat: 0.4, transparent: true });
+    var rimRing = new THREE.Mesh(new THREE.TorusGeometry(TUBE_R - 0.015, 0.018, 6, 40), rimMat);
+    rimRing.rotation.x = Math.PI / 2;
+    rimRing.position.y = -0.26 + BODY_H / 2;
+    mouth.add(rimRing);
+
+    /* lid */
+    var lid = new THREE.Group();
+    tube.add(lid);
+    var lidMat = new THREE.MeshPhysicalMaterial({
+      map: lidTexture(), roughness: 0.55, metalness: 0,
+      clearcoat: 0.18, clearcoatRoughness: 0.6, envMapIntensity: 0.22, transparent: true
+    });
+    var lidSide = new THREE.Mesh(new THREE.CylinderGeometry(TUBE_R + 0.016, TUBE_R + 0.016, LID_H, 44, 1, true), lidMat);
+    lid.add(lidSide);
+    var lidTopMat = new THREE.MeshPhysicalMaterial({ color: 0x8c1804, roughness: 0.62, metalness: 0, clearcoat: 0.15, envMapIntensity: 0.18, transparent: true });
+    var lidTop = new THREE.Mesh(new THREE.CircleGeometry(TUBE_R + 0.016, 64), lidTopMat);
+    lidTop.rotation.x = -Math.PI / 2;
+    lidTop.position.y = LID_H / 2;
+    lid.add(lidTop);
+    var lidHome = new THREE.Vector3(0, -0.26 + BODY_H / 2 - LID_H / 2 + 0.26, 0);
+    lid.position.copy(lidHome);
+
+    var tubeParts = [bodyMat, baseMat, innerMat, mFloorMat, rimMat, lidMat, lidTopMat];
+
+    /* ================= small capsules that rise out ================= */
+    var shellMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff, roughness: 0.02, metalness: 0,
+      transparent: true, opacity: 0.13, depthWrite: false,
+      clearcoat: 1, clearcoatRoughness: 0.02,
+      envMapIntensity: 2.6, side: THREE.DoubleSide
+    });
+    /* now the bead material for the floating capsules */
+    var coreMat = new THREE.MeshStandardMaterial({
+      color: 0xfbfcf9, roughness: 0.34, metalness: 0, transparent: true
+    });
+
+    function smallCapsule() {
+      var g = new THREE.Group();
+      var r = 0.082, bodyLen = 0.30, capLen = 0.20;
+      var bodyHalf = new THREE.Mesh(capsuleHalf(r, bodyLen, 20), shellMat);
+      bodyHalf.rotation.x = Math.PI;
+      bodyHalf.position.y = 0.02;
+      g.add(bodyHalf);
+      var capHalf = new THREE.Mesh(capsuleHalf(r * 1.055, capLen, 20), shellMat);
+      capHalf.position.y = -0.02;
+      g.add(capHalf);
+      g.renderOrder = 2;
+      return g;
+    }
+
+    var RING_N = 6;
+    var ring = new THREE.Group();
+    world.add(ring);
+    var ringItems = [];
+    for (var i = 0; i < RING_N; i++) {
+      var cap = smallCapsule();
+      var a = (i / RING_N) * Math.PI * 2 + 0.4;
+      ringItems.push({
+        node: cap,
+        a: a,
+        rad: 0.58 + (i % 2) * 0.18,
+        h: 0.98 + (i % 3) * 0.24,
+        spin: new THREE.Vector3(0.5 + Math.random(), 0.7 + Math.random(), 0.3 + Math.random()),
+        tilt: Math.random() * Math.PI,
+        phase: Math.random() * 6.28
+      });
+      ring.add(cap);
+    }
+
+    /* microbeadlets inside the floating capsules: one instanced mesh for all
+       six, each bead placed through its own capsule's transform */
+    var SBPC = 110;                      /* beadlets per capsule */
+    var SPR = 0.060, SPH = 0.172, SPCY = -0.05;
+    var sLocal = [], sScale = [];
+    for (var sb = 0; sb < SBPC; sb++) {
+      var sp = null;
+      for (var sg = 0; sg < 300 && !sp; sg++) {
+        var sx = (Math.random() * 2 - 1) * SPR;
+        var sz = (Math.random() * 2 - 1) * SPR;
+        var sy = (Math.random() * 2 - 1) * (SPH + SPR);
+        var sr = Math.sqrt(sx * sx + sz * sz);
+        if (sr > SPR) continue;
+        if (Math.abs(sy) > SPH) {
+          var sd = Math.abs(sy) - SPH;
+          if (Math.sqrt(sr * sr + sd * sd) > SPR) continue;
+        }
+        sp = new THREE.Vector3(sx, sy + SPCY, sz);
+      }
+      sLocal.push(sp || new THREE.Vector3(0, SPCY, 0));
+      sScale.push(0.78 + Math.random() * 0.5);
+    }
+    /* parented to each capsule, so the GPU carries the transform and the CPU
+       never touches these matrices again */
+    var sBeadGeo = new THREE.SphereGeometry(0.0104, 6, 4);
+    var ringBeadMeshes = [];
+    var dmb = new THREE.Object3D();
+    for (var rc = 0; rc < ringItems.length; rc++) {
+      var rim = new THREE.InstancedMesh(sBeadGeo, coreMat, SBPC);
+      rim.renderOrder = 1;
+      for (var rq = 0; rq < SBPC; rq++) {
+        dmb.position.copy(sLocal[rq]);
+        dmb.quaternion.set(0, 0, 0, 1);
+        dmb.scale.setScalar(sScale[rq]);
+        dmb.updateMatrix();
+        rim.setMatrixAt(rq, dmb.matrix);
+      }
+      ringItems[rc].node.add(rim);
+      ringBeadMeshes.push(rim);
+    }
+
+    /* ================= hero capsule ================= */
+    var hero = new THREE.Group();
+    world.add(hero);
+    hero.rotation.z = 0.30;
+
+    var HR = 0.50, HBODY = 1.72, HCAP = 1.12;
+    var heroShellMat = shellMat.clone();
+    heroShellMat.opacity = 0.15;
+    var heroBody = new THREE.Mesh(capsuleHalf(HR, HBODY, 40), heroShellMat);
+    heroBody.rotation.x = Math.PI;
+    heroBody.position.y = 0.18;
+    heroBody.renderOrder = 3;
+    hero.add(heroBody);
+    var heroCap = new THREE.Mesh(capsuleHalf(HR * 1.045, HCAP, 40), heroShellMat);
+    heroCap.position.y = -0.18;
+    heroCap.renderOrder = 3;
+    hero.add(heroCap);
+
+    /* the joint, so it is obvious the capsule comes apart here */
+    var seamMat = new THREE.MeshBasicMaterial({ color: 0x6e7672, transparent: true, opacity: 0 });
+    var seam = new THREE.Mesh(new THREE.TorusGeometry(HR * 1.075, 0.022, 6, 44), seamMat);
+    seam.rotation.x = Math.PI / 2;
+    seam.position.y = -0.18;
+    seam.renderOrder = 4;
+    hero.add(seam);
+
+    /* beads */
+    var BEADS = 360;
+    var beadMat = new THREE.MeshStandardMaterial({ color: 0xfbfcf9, roughness: 0.34, metalness: 0, transparent: true });
+    var beads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.055, 7, 5), beadMat, BEADS);
+    beads.renderOrder = 2;
+    hero.add(beads);
+
+    var packed = [], cloud = [], cluster = [], beadScale = [], beadSpin = [];
+    var PR = HR * 0.86, PH = 0.74, PCY = -0.32;   /* matches the shell interior */
+    for (var b = 0; b < BEADS; b++) {
+      /* packed inside the capsule volume */
+      var p = null;
+      for (var guard = 0; guard < 400 && !p; guard++) {
+        var px = (Math.random() * 2 - 1) * PR;
+        var py = (Math.random() * 2 - 1) * (PH + PR);
+        var pz = (Math.random() * 2 - 1) * PR;
+        var rr = Math.sqrt(px * px + pz * pz);
+        if (rr > PR) continue;
+        if (Math.abs(py) > PH) {
+          var dy = Math.abs(py) - PH;
+          if (Math.sqrt(rr * rr + dy * dy) > PR) continue;
+        }
+        p = new THREE.Vector3(px, py + PCY, pz);
+      }
+      packed.push(p || new THREE.Vector3(0, PCY, 0));
+
+      /* burst cloud */
+      var th = Math.random() * Math.PI * 2;
+      var ph = Math.acos(Math.random() * 2 - 1);
+      var cr = 0.98 + Math.random() * 0.80;
+      cloud.push(new THREE.Vector3(
+        Math.sin(ph) * Math.cos(th) * cr,
+        Math.cos(ph) * cr * 0.82,
+        Math.sin(ph) * Math.sin(th) * cr * 0.7
+      ));
+
+      /* three clusters */
+      var slot = b % 3;
+      var cxs = [-1.50, 0.02, 1.54][slot];
+      var u = Math.random(), v = Math.random(), w = Math.random();
+      var rad = 0.46 * Math.cbrt(u);
+      var t2 = v * Math.PI * 2, p2 = Math.acos(w * 2 - 1);
+      cluster.push(new THREE.Vector3(
+        cxs + Math.sin(p2) * Math.cos(t2) * rad,
+        Math.cos(p2) * rad,
+        Math.sin(p2) * Math.sin(t2) * rad
+      ));
+
+      beadScale.push(0.82 + Math.random() * 0.42);
+      beadSpin.push(Math.random() * 6.28);
+    }
+
+    /* ================= the three forms ================= */
+    var formsGroup = new THREE.Group();
+    formsGroup.position.y = 0.24;
+    world.add(formsGroup);
+    var formNodes = [], formMats = [];
+
+    /* 1. bisglycinate: a chelate knot */
+    var knotMat = new THREE.MeshPhysicalMaterial({
+      color: FORM_HEX[0], roughness: 0.26, metalness: 0,
+      clearcoat: 0.58, clearcoatRoughness: 0.14, envMapIntensity: 0.34, transparent: true, opacity: 0
+    });
+    var knot = new THREE.Mesh(new THREE.TorusKnotGeometry(0.285, 0.082, 220, 30, 2, 3), knotMat);
+    knot.position.x = -1.50;
+    formsGroup.add(knot);
+    formNodes.push(knot); formMats.push(knotMat);
+
+    /* 2. aquamin: a marine crystal cluster */
+    var crysMat = new THREE.MeshPhysicalMaterial({
+      color: FORM_HEX[1], roughness: 0.26, metalness: 0, flatShading: true,
+      clearcoat: 0.45, clearcoatRoughness: 0.16, envMapIntensity: 0.34,
+      transparent: true, opacity: 0
+    });
+    var edgeMat = new THREE.LineBasicMaterial({ color: 0x083f52, transparent: true, opacity: 0 });
+    var crystals = new THREE.Group();
+    crystals.position.x = 0;
+    var cBaked = [], eBaked = [], cMtx = new THREE.Matrix4(), cEul = new THREE.Euler();
+    for (var ci = 0; ci < 10; ci++) {
+      var pick = ci % 3;
+      var geo = pick === 0
+        ? new THREE.ConeGeometry(0.13 + Math.random() * 0.08, 0.30 + Math.random() * 0.26, 7)
+        : pick === 1
+          ? new THREE.OctahedronGeometry(0.16 + Math.random() * 0.10, 0)
+          : new THREE.IcosahedronGeometry(0.13 + Math.random() * 0.08, 0);
+      cEul.set(Math.random() * 3.14, Math.random() * 3.14, Math.random() * 3.14);
+      cMtx.compose(
+        randomAxis().multiplyScalar(0.09 + Math.random() * 0.24),
+        new THREE.Quaternion().setFromEuler(cEul),
+        new THREE.Vector3(1, 1, 1)
+      );
+      geo.applyMatrix4(cMtx);
+      cBaked.push(geo);
+      eBaked.push(new THREE.EdgesGeometry(geo, 26));
+    }
+    var crysMesh = new THREE.Mesh(mergeBaked(cBaked, true), crysMat);
+    crystals.add(crysMesh);
+    crystals.add(new THREE.LineSegments(mergeBaked(eBaked, false), edgeMat));
+    formsGroup.add(crystals);
+    formNodes.push(crystals); formMats.push(crysMat);
+
+    /* 3. threonate: a dendrite */
+    var dendMat = new THREE.MeshPhysicalMaterial({
+      color: FORM_HEX[2], roughness: 0.30, metalness: 0,
+      clearcoat: 0.62, clearcoatRoughness: 0.12, envMapIntensity: 0.40, transparent: true, opacity: 0
+    });
+    var dend = new THREE.Group();
+    dend.position.x = 1.54;
+    dend.add(new THREE.Mesh(new THREE.SphereGeometry(0.15, 30, 22), dendMat));
+    var dOut = { branch: [], knob: [] };
+    for (var di = 0; di < 6; di++) {
+      dendrite(dOut, 3, 0.34, 0.070, randomAxis(), new THREE.Vector3(0, 0, 0));
+    }
+    var brMesh = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.72, 1, 1, 16, 1), dendMat, dOut.branch.length);
+    var kbMesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1, 14, 10), dendMat, dOut.knob.length);
+    var dm = new THREE.Object3D();
+    for (var bi2 = 0; bi2 < dOut.branch.length; bi2++) {
+      var bb = dOut.branch[bi2];
+      dm.position.copy(bb.p); dm.quaternion.copy(bb.q); dm.scale.copy(bb.s);
+      dm.updateMatrix(); brMesh.setMatrixAt(bi2, dm.matrix);
+    }
+    for (var ki = 0; ki < dOut.knob.length; ki++) {
+      var kk = dOut.knob[ki];
+      dm.position.copy(kk.p); dm.quaternion.set(0, 0, 0, 1); dm.scale.setScalar(kk.r);
+      dm.updateMatrix(); kbMesh.setMatrixAt(ki, dm.matrix);
+    }
+    dend.add(brMesh);
+    dend.add(kbMesh);
+    formsGroup.add(dend);
+    formNodes.push(dend); formMats.push(dendMat);
+
+    formNodes.forEach(function (n) { n.visible = false; });
+    var formBaseX = [knot.position.x, crystals.position.x, dend.position.x];
+    var FORM_SCALE = [1, 1.06, 0.72];   /* balanced by silhouette, not by number */
+
+    /* ------------------------------------------------------------------ *
+     *  Interaction: drag to turn
+     * ------------------------------------------------------------------ */
+    var spinY = 0, spinX = 0, spinYTarget = 0, spinXTarget = 0;
+    var fSpinY = 0, fSpinX = 0, fSpinYT = 0, fSpinXT = 0;
+    var dragging = false, lastX = 0, lastY = 0, decided = null, downX = 0, downY = 0;
+    var el = renderer.domElement;
+    var grabHint = document.getElementById('grabHint');
+
+    function down(e) {
+      dragging = true; decided = null;
+      var pt = point(e);
+      lastX = downX = pt.x; lastY = downY = pt.y;
+      el.classList.add('dragging');
+      grabHint.style.opacity = '0';
+      if (cueEl) cueEl.dataset.show = '0';
+    }
+    function move(e) {
+      if (!dragging) return;
+      if (e.touches && e.touches.length > 1) return;
+      var pt = point(e);
+      var dx = pt.x - lastX, dy = pt.y - lastY;
+      if (e.touches && e.cancelable) e.preventDefault();
+      /* drag toward the side you want to see: right reveals the right flank,
+         up reveals the top. Both axes work on touch as well as mouse. */
+      if (focus >= 0) {
+        /* rotating the world would swing the focused form off camera, since it
+           sits off to one side of the origin. Turn the form in place instead. */
+        fSpinYT -= dx * 0.010;
+        fSpinXT = Math.max(-1.4, Math.min(1.4, fSpinXT - dy * 0.008));
+      } else {
+        spinYTarget -= dx * 0.008;
+        spinXTarget = Math.max(-1.15, Math.min(1.15, spinXTarget - dy * 0.005));
+      }
+      lastX = pt.x; lastY = pt.y;
+    }
+    function up() { dragging = false; decided = null; el.classList.remove('dragging'); }
+    function point(e) {
+      if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    el.addEventListener('mousedown', down);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    el.addEventListener('touchstart', down, { passive: true });
+    el.addEventListener('touchmove', move, { passive: false });
+    el.addEventListener('touchend', up);
+
+    /* wheel and pinch to zoom */
+    var zoom = 1, pinch = 0;
+    function clampZoom(z) { return Math.max(0.48, Math.min(2.1, z)); }
+    el.addEventListener('wheel', function (e) {
+      if (e.cancelable) e.preventDefault();
+      zoom = clampZoom(zoom * (1 + Math.max(-120, Math.min(120, e.deltaY)) * 0.0009));
+    }, { passive: false });
+    function spread(e) {
+      var a = e.touches[0], c = e.touches[1];
+      return Math.sqrt(Math.pow(a.clientX - c.clientX, 2) + Math.pow(a.clientY - c.clientY, 2));
+    }
+    el.addEventListener('touchstart', function (e) {
+      if (e.touches.length === 2) pinch = spread(e);
+    }, { passive: true });
+    el.addEventListener('touchmove', function (e) {
+      if (e.touches.length !== 2) return;
+      if (e.cancelable) e.preventDefault();
+      var d = spread(e);
+      if (pinch && d) zoom = clampZoom(zoom * (pinch / d));
+      pinch = d;
+    }, { passive: false });
+
+    /* ------------------------------------------------------------------ *
+     *  Beat driver
+     * ------------------------------------------------------------------ */
+    var beat = 0, from = pose(0), to = pose(0), t = 1, cur = pose(0), tStart = -1;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var DUR = reduce ? 0.18 : 1.15;
+
+    var dotEl = document.getElementById('dot');
+    var cueEl = document.getElementById('cue');
+    var cueTxt = document.getElementById('cueTxt');
+    var navBtns = Array.prototype.slice.call(document.querySelectorAll('#nav button'));
+    var focus = -1, cueTimer = null, autoTimer = null;
+
+    var pins = Array.prototype.slice.call(viewer.querySelectorAll('.pin'));
+    var sheet = document.getElementById('sheet');
+    var sheetTitle = document.getElementById('sheetTitle');
+    var sheetBody = document.getElementById('sheetBody');
+
+    pins.forEach(function (p, i) {
+      p.style.setProperty('--sw', FORM_CSS[i]);
+      p.addEventListener('click', function () { focusForm(i); });
+    });
+
+    /* the wording is a prompt, not furniture: it says its piece and leaves */
+    function flashCue() {
+      if (cueTimer) { clearTimeout(cueTimer); cueTimer = null; }
+      var txt = BEATS[beat] ? BEATS[beat].label : '';
+      if (!txt) { cueEl.dataset.show = '0'; return; }
+      cueTxt.textContent = txt;
+      cueEl.dataset.show = '1';
+      cueTimer = setTimeout(function () { cueEl.dataset.show = '0'; }, 5000);
+    }
+
+    function paintChrome() {
+      dotEl.dataset.show = tapTargets[beat] ? '1' : '0';
+      navBtns.forEach(function (n) {
+        var go = parseInt(n.dataset.go, 10);
+        if (go === 0 ? beat <= 2 : beat >= 3) n.setAttribute('aria-current', 'true');
+        else n.removeAttribute('aria-current');
+      });
+      pins.forEach(function (p) { p.dataset.show = (beat === 5 && focus < 0) ? '1' : '0'; });
+      document.getElementById('nav').dataset.hide = focus >= 0 ? '1' : '0';
+      flashCue();
+    }
+
+    function objectSnapshot() {
+      var o = {};
+      Object.keys(cur).forEach(function (k) { o[k] = cur[k]; });
+      return o;
+    }
+
+    function goTo(n) {
+      if (n === beat || n > 5) return;
+      if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+      focus = -1;
+      zoom = 1;
+      spinYTarget = 0;
+      spinXTarget = 0;
+      sheet.dataset.open = '0';
+      from = objectSnapshot();
+      beat = n;
+      to = pose(beat);
+      tStart = (window.performance || Date).now();
+      paintChrome();
+      if (AUTO_HOLD[beat] != null) {
+        autoTimer = setTimeout(function () {
+          autoTimer = null;
+          goTo(beat + 1);
+        }, DUR * 1000 + AUTO_HOLD[beat]);
+      }
+    }
+
+    /* clicking a form flies the camera to it and opens its card */
+    function focusForm(i) {
+      focus = i;
+      spinYTarget = 0;
+      spinXTarget = 0;
+      fSpinYT = fSpinY = 0;
+      fSpinXT = fSpinX = 0;
+      sheetTitle.innerHTML = FORMS[i].title;
+      sheetBody.innerHTML = FORMS[i].body;
+      sheet.style.borderLeftWidth = '3px';
+      sheet.style.borderLeftColor = FORM_CSS[i];
+      sheet.dataset.open = '1';
+      paintChrome();
+    }
+
+    /* closing the card returns the camera to all three */
+    function clearFocus() {
+      focus = -1;
+      sheet.dataset.open = '0';
+      paintChrome();
+    }
+
+    document.getElementById('sheetX').addEventListener('click', clearFocus);
+    document.getElementById('sheetPrev').addEventListener('click', function () {
+      if (focus >= 0) focusForm((focus + FORMS.length - 1) % FORMS.length);
+    });
+    document.getElementById('sheetNext').addEventListener('click', function () {
+      if (focus >= 0) focusForm((focus + 1) % FORMS.length);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (focus < 0) return;
+      if (e.key === 'ArrowRight') focusForm((focus + 1) % FORMS.length);
+      else if (e.key === 'ArrowLeft') focusForm((focus + FORMS.length - 1) % FORMS.length);
+      else if (e.key === 'Escape') clearFocus();
+    });
+    dotEl.addEventListener('click', function () { goTo(beat + 1); });
+    navBtns.forEach(function (n) {
+      n.addEventListener('click', function () { goTo(parseInt(n.dataset.go, 10)); });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('#zoomctl button'), function (n) {
+      n.addEventListener('click', function () {
+        var k = n.dataset.z;
+        if (k === 'in') zoom = clampZoom(zoom * 0.80);
+        else if (k === 'out') zoom = clampZoom(zoom * 1.25);
+        else {
+          zoom = 1;
+          spinYTarget = 0; spinXTarget = 0;
+          fSpinYT = 0; fSpinXT = 0;
+        }
+      });
+    });
+
+    /* the object itself is the control */
+    var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+    var tapTargets = { 0: lid, 2: ring, 3: hero };
+
+    el.addEventListener('click', function (e) {
+      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 6) return;
+      var r = el.getBoundingClientRect();
+      ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+      ray.setFromCamera(ndc, cam);
+      if (beat === 5) {
+        if (focus >= 0) {
+          /* the other two are hidden, so anything but the focused form closes */
+          if (!ray.intersectObject(formNodes[focus], true).length) clearFocus();
+          return;
+        }
+        for (var i = 0; i < formNodes.length; i++) {
+          if (ray.intersectObject(formNodes[i], true).length) { focusForm(i); return; }
+        }
+        return;
+      }
+      var tgt = tapTargets[beat];
+      if (tgt && ray.intersectObject(tgt, true).length) goTo(beat + 1);
+    });
+
+    paintChrome();
+
+    /* ------------------------------------------------------------------ *
+     *  Frame loop
+     * ------------------------------------------------------------------ */
+    var dummy = new THREE.Object3D();
+    var vTmp = new THREE.Vector3();
+    var hotPos = { x: -999, y: -999 };
+    var pinPos = [{ x: -999, y: -999 }, { x: -999, y: -999 }, { x: -999, y: -999 }];
+
+    /* only move a marker once it has drifted enough to matter, so the gentle
+       idle float never turns it into a moving tap target */
+    function place(node, x, y, store) {
+      if (Math.abs(store.x - x) > 3 || Math.abs(store.y - y) > 3) {
+        store.x = x; store.y = y;
+        node.style.left = Math.round(x) + 'px';
+        node.style.top = Math.round(y) + 'px';
+      }
+    }
+    var clock = new THREE.Clock();
+    var firstFrame = true;
+    var prevT = 1;
+    var api = { running: false };
+    var pageVisible = !document.hidden;
+    var onScreen = true;
+    document.addEventListener('visibilitychange', function () {
+      pageVisible = !document.hidden;
+    });
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(function (es) {
+        onScreen = es[0].isIntersecting;
+      }, { threshold: 0 }).observe(host);
+    }
+
+    /* if the device cannot hold a smooth frame, shed load rather than stutter */
+    var qLevel = 1, qFrames = 0, qAccum = 0;
+    var dprSteps = [Math.min(window.devicePixelRatio || 1, maxDpr), 1.6, 1.25, 1];
+    function stepDownQuality() {
+      if (qLevel < dprSteps.length) {
+        renderer.setPixelRatio(Math.min(dprSteps[qLevel], dprSteps[0]));
+        qLevel++;
+        resize();
+      } else if (qLevel === dprSteps.length) {
+        qLevel++;
+        beads.count = Math.floor(BEADS * 0.5);
+        for (var i = 0; i < ringBeadMeshes.length; i++) {
+          ringBeadMeshes[i].count = Math.floor(SBPC * 0.5);
+        }
+      }
+    }
+
+    function ease(u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
+    function mix(a, b, u) { return a + (b - a) * u; }
+    function setOpacity(matArr, o) {
+      for (var i = 0; i < matArr.length; i++) {
+        matArr[i].opacity = o;
+        matArr[i].transparent = true;
+      }
+    }
+
+    function frame() {
+      requestAnimationFrame(frame);
+      if (!api.running || !pageVisible || !onScreen) return;
+
+      var raw = clock.getDelta();
+      var dt = Math.min(raw, 0.05);
+      var dtE = Math.min(raw, 0.5);
+      var beadsDirty = t < 1 || prevT < 1;
+      prevT = t;
+
+      if (qLevel <= dprSteps.length) {
+        qAccum += dt; qFrames++;
+        if (qFrames >= 60) {
+          var avgFrame = qAccum / qFrames;
+          qAccum = 0; qFrames = 0;
+          if (avgFrame > 0.036) stepDownQuality();   /* under ~28fps */
+        }
+      }
+      var now = clock.elapsedTime;
+
+      t = tStart < 0 ? 1 : Math.min(1, ((window.performance || Date).now() - tStart) / (DUR * 1000));
+      var u = ease(t);
+      Object.keys(to).forEach(function (k) { cur[k] = mix(from[k], to[k], u); });
+
+      /* camera, overridden while a single form is focused */
+      var narrow = el.clientWidth < 520;
+      /* on a phone the zoom controls eat the right edge, so nudge the trio
+         left and pull back a little rather than crowding them together */
+      formsGroup.position.x = narrow ? -0.12 : 0;
+      var wx = 0, wy = cur.camY, wz = cur.camZ * zoom * (narrow ? 1.05 : 1), tx = 0, ty = cur.tgtY;
+      if (focus >= 0) {
+        wx = tx = formNodes[focus].position.x + formsGroup.position.x;
+        /* on a phone the card eats the lower half, so sit the form high and back */
+        wy = ty = formsGroup.position.y + (narrow ? -0.26 : 0.14);
+        wz = (narrow ? 4.85 : 3.95) * zoom;
+      }
+      var kCam = 1 - Math.pow(0.90, dtE * 60);
+      cam.position.x = mix(cam.position.x, wx, kCam);
+      cam.position.y = mix(cam.position.y, wy, kCam);
+      cam.position.z = mix(cam.position.z, wz, kCam);
+      camTarget.x = mix(camTarget.x, tx, kCam);
+      camTarget.y = mix(camTarget.y, ty, kCam);
+      cam.lookAt(camTarget);
+
+      /* drag only: an auto-rotating product makes the hotspot a moving target */
+      var kSpin = 1 - Math.pow(0.91, dtE * 60);
+      spinY = mix(spinY, spinYTarget, kSpin);
+      spinX = mix(spinX, spinXTarget, kSpin);
+      fSpinY = mix(fSpinY, fSpinYT, kSpin);
+      fSpinX = mix(fSpinX, fSpinXT, kSpin);
+      world.rotation.y = spinY;
+      world.rotation.x = spinX;
+
+      /* ---- tube ---- */
+      var tubeVis = cur.tube;
+      tube.visible = tubeVis > 0.01;
+      tube.position.y = cur.tubeY;
+      setOpacity(tubeParts, tubeVis);
+
+      /* lid lifts, slides aside and tips over */
+      var L = cur.lid;
+      lid.position.set(
+        lidHome.x - 0.88 * L,
+        lidHome.y + 0.86 * L,
+        lidHome.z + 0.30 * L
+      );
+      lid.rotation.z = -0.85 * L;
+      lid.rotation.x = 0.22 * L;
+
+      /* ---- ring capsules ---- */
+      var R = cur.ring;
+      ring.visible = R > 0.01;
+      for (var i = 0; i < ringItems.length; i++) {
+        var it = ringItems[i];
+        var launch = 0.40;                        /* down inside the pack */
+        var settle = it.h;
+        var y = mix(launch, settle, Math.min(1, R * 1.0));
+        var rad = it.rad * R;
+        var a = it.a;
+        it.node.position.set(
+          Math.cos(a) * rad,
+          y,
+          Math.sin(a) * rad * 0.62
+        );
+        it.node.rotation.set(
+          it.tilt + now * 0.36 * it.spin.x,
+          now * 0.30 * it.spin.y,
+          it.tilt * 0.6 + now * 0.26 * it.spin.z
+        );
+        it.node.scale.setScalar(Math.max(0.001, R));
+      }
+      shellMat.opacity = 0.13 * R;
+      coreMat.opacity = R;
+      coreMat.transparent = R < 0.995;
+
+      /* ---- hero capsule ---- */
+      var Hv = cur.hero;
+      hero.visible = Hv > 0.01;
+      heroShellMat.opacity = 0.15 * Math.max(0, 1 - cur.form) * Hv;
+      hero.rotation.y = now * 0.10;
+      hero.position.y = 0;
+
+      /* halves pull apart along the capsule axis */
+      var S = cur.split;
+      heroBody.position.y = 0.18 - 1.05 * S;
+      heroCap.position.y = -0.18 + 1.05 * S;
+      heroBody.rotation.z = 0.10 * S;
+      heroCap.rotation.z = -0.10 * S;
+
+      /* the current target breathes so it reads as tappable */
+      var pulse = 0.5 + 0.5 * Math.sin(now * 3.0);
+      lidMat.emissive.setScalar(0);
+      lidTopMat.emissive.setScalar(0);
+      var capGlow = beat === 2 ? 0.12 + 0.20 * pulse : 0;
+      shellMat.emissive.setScalar(capGlow);
+      coreMat.emissive.setScalar(capGlow * 0.45);
+      heroShellMat.emissive.setScalar(beat === 3 ? 0.06 + 0.12 * pulse : 0);
+      seamMat.opacity = beat === 3 ? (0.45 + 0.45 * pulse) * Hv : 0;
+      seam.visible = seamMat.opacity > 0.02;
+      beadMat.emissive.setScalar(0);
+
+      /* ---- beads ---- */
+      var Bu = cur.burst, Fu = cur.form;
+      beadMat.opacity = Math.max(0.001, Hv * (1 - Fu * 0.92));
+      beads.visible = beadMat.opacity > 0.02;
+      beadMat.transparent = beadMat.opacity < 0.995;
+      if (beads.visible && beadsDirty) {
+        for (var k = 0; k < BEADS; k++) {
+          var a1 = packed[k], b1 = cloud[k], c1 = cluster[k];
+          vTmp.set(
+            mix(a1.x, b1.x, Bu),
+            mix(a1.y, b1.y, Bu),
+            mix(a1.z, b1.z, Bu)
+          );
+          vTmp.set(
+            mix(vTmp.x, c1.x, Fu),
+            mix(vTmp.y, c1.y, Fu),
+            mix(vTmp.z, c1.z, Fu)
+          );
+          dummy.position.copy(vTmp);
+          dummy.scale.setScalar(beadScale[k] * (1 - Fu * 0.35));
+          dummy.rotation.set(beadSpin[k], beadSpin[k] * 1.3, 0);
+          dummy.updateMatrix();
+          beads.setMatrixAt(k, dummy.matrix);
+        }
+        beads.instanceMatrix.needsUpdate = true;
+      }
+
+      /* ---- forms ---- */
+      formsGroup.visible = Fu > 0.01;
+      for (var f = 0; f < formNodes.length; f++) {
+        formNodes[f].visible = Fu > 0.02 && (focus < 0 || focus === f);
+        var fBase = Math.max(0, (Fu - 0.25) / 0.75);
+        formMats[f].opacity = fBase;
+        if (f === 1) edgeMat.opacity = formMats[1].opacity * 0.85;
+        var fScale = (0.88 + 0.34 * Fu) * FORM_SCALE[f];
+        if (focus === f && narrow) fScale *= 0.94;
+        formNodes[f].scale.setScalar(fScale);
+      }
+      knot.rotation.x = now * 0.28;
+      knot.rotation.y = now * 0.19;
+      crystals.rotation.y = now * 0.22;
+      crystals.rotation.x = Math.sin(now * 0.4) * 0.16;
+      dend.rotation.y = -now * 0.24;
+      dend.rotation.z = Math.sin(now * 0.5) * 0.12;
+      if (focus >= 0) {
+        formNodes[focus].rotation.set(fSpinX, fSpinY + now * 0.11, 0);
+      }
+
+      /* ---- screen-space markers ---- */
+      var rect = el.getBoundingClientRect();
+      if (beat === 5) {
+        if (Fu > 0.4) {
+          for (var pi = 0; pi < formNodes.length; pi++) {
+            formNodes[pi].getWorldPosition(vTmp);
+            vTmp.y -= 0.88;
+            vTmp.project(cam);
+            place(pins[pi], (vTmp.x * 0.5 + 0.5) * rect.width,
+                  (-vTmp.y * 0.5 + 0.5) * rect.height, pinPos[pi]);
+          }
+        }
+      } else {
+        if (beat === 0) { lid.getWorldPosition(vTmp); vTmp.y += 0.04; }
+        else if (beat === 2) { ringItems[2].node.getWorldPosition(vTmp); }
+        else { seam.getWorldPosition(vTmp); }
+        vTmp.project(cam);
+        place(dotEl, (vTmp.x * 0.5 + 0.5) * rect.width,
+              (-vTmp.y * 0.5 + 0.5) * rect.height, hotPos);
+        var cp = CUE_POS[beat] || CUE_POS[0];
+        cueEl.style.left = Math.round(cp[0] * rect.width) + 'px';
+        cueEl.style.top = Math.round(cp[1] * rect.height) + 'px';
+      }
+
+      /* ---- contact shadows, offset along the key light ---- */
+      var gY = GROUND + 0.005;
+      shTube.position.set(-0.18, gY, -0.24);
+      shTube.material.opacity = 0.62 * cur.tube;
+      shTube.visible = shTube.material.opacity > 0.02;
+
+      shHero.position.set(-0.30, gY, -0.41);
+      shHero.material.opacity = 0.34 * Hv;
+      shHero.scale.set(2.30 + 1.5 * Bu, 1.45 + 0.95 * Bu, 1);
+      shHero.visible = shHero.material.opacity > 0.02;
+
+      for (var sfi = 0; sfi < 3; sfi++) {
+        shForms[sfi].position.set(
+          formNodes[sfi].position.x + formsGroup.position.x - 0.35, gY, -0.48);
+        shForms[sfi].material.opacity =
+          0.46 * Fu * (focus < 0 || focus === sfi ? 1 : 0);
+        shForms[sfi].visible = shForms[sfi].material.opacity > 0.02;
+      }
+
+      renderer.render(sc, cam);
+
+      /* the prompt gets its five seconds from the first painted frame, not from
+         when the scene started building */
+      if (firstFrame) { firstFrame = false; flashCue(); }
+    }
+
+    /* resize */
+    function resize() {
+      var w = host.clientWidth, h = host.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h);
+      cam.aspect = w / h;
+      cam.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(host);
+    resize();
+
+    frame();
+    return api;
+  }
+})();
+</script>
+</body>
+</html>
